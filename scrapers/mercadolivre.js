@@ -121,8 +121,8 @@ async function scrapMercadoLivre(url) {
 
     return {
       title: title || "Erro na extração",
-      price: promoPrice || "N/A",
-      originalPrice: originalPrice || null,
+      price: promoPrice ? `R$ ${promoPrice}` : "N/A",
+      originalPrice: originalPrice ? `R$ ${originalPrice}` : null,
       discount: discountPercent,
       image: image || "",
       url: finalUrl,

@@ -47,13 +47,21 @@ TELEGRAM_BOT.on("message", async (msg) => {
     const state = userStates[chatId];
 
     if (state.step === "awaiting_coupon") {
-      if (/^sim$/i.test(text.trim())) {
+      // Aceita variações de sim/não
+      const yesList = ["sim", "s", "yes", "y"];
+      const noList = ["não", "nao", "n", "no", "não"];
+      const answer = text
+        .trim()
+        .toLowerCase()
+        .replace(/[ãá]/g, "a")
+        .replace(/[ôó]/g, "o");
+      if (yesList.includes(answer)) {
         userStates[chatId].step = "awaiting_coupon_code";
         TELEGRAM_BOT.sendMessage(
           chatId,
           "Por favor, informe o CUPOM de desconto:"
         );
-      } else {
+      } else if (noList.includes(answer)) {
         // Não tem cupom, envia oferta normalmente
         const produto = userStates[chatId].produto;
         // Monta mensagem para Telegram (Markdown V2)
@@ -76,21 +84,21 @@ ${precoMsgTelegram}
 *Compartilhe com seus amigos e aproveite! 🚀*
         `.trim();
 
-        // WhatsApp
+        // WhatsApp - mensagem mais envolvente
         let precoMsgWhats = `💰 ${produto.price}`;
         if (produto.originalPrice && produto.discount) {
-          precoMsgWhats += `  (De: ${produto.originalPrice} | ${produto.discount})`;
+          precoMsgWhats += `   ~${produto.originalPrice}~   🔥 ${produto.discount}`;
         } else if (produto.originalPrice) {
-          precoMsgWhats += `  (De: ${produto.originalPrice})`;
+          precoMsgWhats += `   ~${produto.originalPrice}~`;
         }
-        let anuncioWhats = `🎯 ACHAMOS UMA OFERTA PRA VOCÊ!
+        let anuncioWhats = `🎯 *ACHAMOS UMA OFERTA PRA VOCÊ!*
 
-${produto.title}
+${produto.title.toUpperCase()}
 
 ${precoMsgWhats}
 
-${produto.image ? "Imagem: " + produto.image + "\n" : ""}
-Veja: ${produto.url}
+${produto.image ? "🖼️ Imagem do produto: " + produto.image + "\n" : ""}
+👉 Veja: ${produto.url}
 
 Compartilhe com seus amigos e aproveite! 🚀`;
 
@@ -107,6 +115,11 @@ Compartilhe com seus amigos e aproveite! 🚀`;
             );
         }
         delete userStates[chatId];
+      } else {
+        TELEGRAM_BOT.sendMessage(
+          chatId,
+          "Por favor, responda apenas com 'sim' ou 'não'."
+        );
       }
       return;
     }
@@ -122,7 +135,9 @@ Compartilhe com seus amigos e aproveite! 🚀`;
     }
 
     if (state.step === "awaiting_coupon_percent") {
-      const percent = parseFloat(text.replace(",", "."));
+      // Aceita percentual com ou sem símbolo %
+      let percentText = text.trim().replace(",", ".").replace("%", "");
+      const percent = parseFloat(percentText);
       if (isNaN(percent) || percent <= 0 || percent >= 100) {
         TELEGRAM_BOT.sendMessage(
           chatId,
@@ -173,31 +188,33 @@ ${precoMsgTelegram}
 *Compartilhe com seus amigos e aproveite! 🚀*
       `.trim();
 
-      // WhatsApp
+      // WhatsApp - mensagem mais envolvente com cupom
       let precoMsgWhats = `💰 R$ ${precoFinal
         .toFixed(2)
         .replace(".", ",")} (com cupom ${userStates[chatId].couponCode})`;
       if (produto.originalPrice && produto.discount) {
-        precoMsgWhats += `  (De: ${produto.originalPrice} | ${produto.discount})`;
+        precoMsgWhats += `   ~${produto.originalPrice}~   🔥 ${produto.discount}`;
       } else if (produto.originalPrice) {
-        precoMsgWhats += `  (De: ${produto.originalPrice})`;
+        precoMsgWhats += `   ~${produto.originalPrice}~`;
       }
-      let anuncioWhats = `🎯 ACHAMOS UMA OFERTA PRA VOCÊ!
+      let anuncioWhats = `🎯 *ACHAMOS UMA OFERTA PRA VOCÊ!*
 
-${produto.title}
+${produto.title.toUpperCase()}
 
 ${precoMsgWhats}
 
-${produto.image ? "Imagem: " + produto.image + "\n" : ""}
-Veja: ${produto.url}
-
 Cupom utilizado: ${userStates[chatId].couponCode} (${percent}% OFF)
+
+${produto.image ? "🖼️ Imagem do produto: " + produto.image + "\n" : ""}
+👉 Veja: ${produto.url}
 
 Compartilhe com seus amigos e aproveite! 🚀`;
 
+      // Envia mensagem no Telegram também
       TELEGRAM_BOT.sendMessage(chatId, anuncioTelegram, {
         parse_mode: "Markdown",
       });
+
       if (WHATSAPP_GROUP_ID) {
         WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, anuncioWhats)
           .then(() => console.log("Mensagem enviada no WhatsApp com sucesso!"))

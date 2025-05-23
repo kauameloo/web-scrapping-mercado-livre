@@ -101,18 +101,35 @@ ${precoMsgTelegram}
 *Compartilhe com seus amigos e aproveite! 🚀*
         `.trim();
 
-        // WhatsApp - envia imagem anexada
-        let precoMsgWhats = `💰 ${produto.price}`;
-        if (produto.originalPrice && produto.discount) {
-          precoMsgWhats += `   ~${produto.originalPrice}~   🔥 ${produto.discount}`;
-        } else if (produto.originalPrice) {
-          precoMsgWhats += `   ~${produto.originalPrice}~`;
+        // WhatsApp - mensagem mais chamativa e organizada (DE: valor POR: valor)
+        let precoMsgWhats = "";
+        if (
+          produto.originalPrice &&
+          produto.price &&
+          produto.originalPrice !== produto.price
+        ) {
+          precoMsgWhats = `💰 *DE:* ${produto.originalPrice}\n💸 *POR:* ${produto.price}`;
+          if (produto.discount) {
+            precoMsgWhats += `   🔥 ${produto.discount}`;
+          }
+        } else {
+          precoMsgWhats = `💰 ${produto.price}`;
         }
-        let legendaWhats = `🎯 *ACHAMOS UMA OFERTA PRA VOCÊ!*\n\n${produto.title.toUpperCase()}\n\n${precoMsgWhats}\n\n${
-          produto.image ? "" : ""
-        }\n👉 Veja: ${
-          produto.url
-        }\n\nCompartilhe com seus amigos e aproveite! 🚀`;
+
+        let legendaWhats = `━━━━━━━━━━━━━━━━━━━━━━
+🎯 *OFERTA ENCONTRADA!*
+━━━━━━━━━━━━━━━━━━━━━━
+
+🛒 *${produto.title.toUpperCase()}*
+
+${precoMsgWhats}
+
+${produto.image ? "" : ""}
+🔗 *Link:* ${produto.url}
+
+━━━━━━━━━━━━━━━━━━━━━━
+👥 Compartilhe com seus amigos e aproveite! 🚀
+━━━━━━━━━━━━━━━━━━━━━━`;
 
         // Envia imagem anexada se houver
         if (produto.image) {
@@ -204,20 +221,43 @@ ${precoMsgTelegram}
 *Compartilhe com seus amigos e aproveite! 🚀*
       `.trim();
 
-      // WhatsApp - envia imagem anexada
-      let precoMsgWhats = `💰 R$ ${precoFinal
-        .toFixed(2)
-        .replace(".", ",")} (com cupom ${userStates[chatId].couponCode})`;
-      if (produto.originalPrice && produto.discount) {
-        precoMsgWhats += `   ~${produto.originalPrice}~   🔥 ${produto.discount}`;
-      } else if (produto.originalPrice) {
-        precoMsgWhats += `   ~${produto.originalPrice}~`;
+      // WhatsApp - mensagem mais chamativa e organizada com cupom (DE: valor POR: valor)
+      let precoMsgWhats = "";
+      if (
+        produto.originalPrice &&
+        produto.price &&
+        produto.originalPrice !== produto.price
+      ) {
+        precoMsgWhats = `💰 *DE:* ${
+          produto.originalPrice
+        }\n💸 *POR:* R$ ${precoFinal.toFixed(2).replace(".", ",")} (com cupom ${
+          userStates[chatId].couponCode
+        })`;
+        if (produto.discount) {
+          precoMsgWhats += `   🔥 ${produto.discount}`;
+        }
+      } else {
+        precoMsgWhats = `💰 R$ ${precoFinal
+          .toFixed(2)
+          .replace(".", ",")} (com cupom ${userStates[chatId].couponCode})`;
       }
-      let legendaWhats = `🎯 *ACHAMOS UMA OFERTA PRA VOCÊ!*\n\n${produto.title.toUpperCase()}\n\n${precoMsgWhats}\n\nCupom utilizado: ${
-        userStates[chatId].couponCode
-      } (${percent}% OFF)\n\n${produto.image ? "" : ""}\n👉 Veja: ${
-        produto.url
-      }\n\nCompartilhe com seus amigos e aproveite! 🚀`;
+
+      let legendaWhats = `━━━━━━━━━━━━━━━━━━━━━━
+🎯 *OFERTA ENCONTRADA!*
+━━━━━━━━━━━━━━━━━━━━━━
+
+🛒 *${produto.title.toUpperCase()}*
+
+${precoMsgWhats}
+
+🎟️ Cupom: ${userStates[chatId].couponCode} (${percent}% OFF)
+
+${produto.image ? "" : ""}
+🔗 *Link:* ${produto.url}
+
+━━━━━━━━━━━━━━━━━━━━━━
+👥 Compartilhe com seus amigos e aproveite! 🚀
+━━━━━━━━━━━━━━━━━━━━━━`;
 
       // Envia imagem anexada se houver
       if (produto.image) {

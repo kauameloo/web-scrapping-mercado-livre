@@ -1,8 +1,9 @@
 require("dotenv").config(); // Adicionado para carregar variáveis do .env
 const TelegramBot = require("node-telegram-bot-api");
-const { Client, LocalAuth } = require("whatsapp-web.js");
+const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
 const scrapMercadoLivre = require("./scrapers/mercadolivre");
+const axios = require("axios"); // Adicione para baixar imagens
 
 // Substitua valores hardcoded por variáveis de ambiente
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
@@ -29,6 +30,22 @@ WHATSAPP_CLIENT.on("message", (msg) => {
     console.log("🆔 ID do grupo:", msg.from);
   }
 });
+
+// Função utilitária para baixar imagem e converter para base64
+async function getImageMedia(url) {
+  try {
+    const response = await axios.get(url, { responseType: "arraybuffer" });
+    const mime = response.headers["content-type"];
+    const media = new MessageMedia(
+      mime,
+      Buffer.from(response.data, "binary").toString("base64"),
+      "imagem.jpg"
+    );
+    return media;
+  } catch (e) {
+    return null;
+  }
+}
 
 // Escuta mensagens no Telegram
 TELEGRAM_BOT.on("message", async (msg) => {
@@ -64,7 +81,7 @@ TELEGRAM_BOT.on("message", async (msg) => {
       } else if (noList.includes(answer)) {
         // Não tem cupom, envia oferta normalmente
         const produto = userStates[chatId].produto;
-        // Monta mensagem para Telegram (Markdown V2)
+        // Monta mensagem para Telegram (Markdown V2) - mantém formato antigo (link da imagem)
         let precoMsgTelegram = `💰 *${produto.price}*`;
         if (produto.originalPrice && produto.discount) {
           precoMsgTelegram += `  ~${produto.originalPrice}~  🔥 *${produto.discount}*`;
@@ -84,36 +101,35 @@ ${precoMsgTelegram}
 *Compartilhe com seus amigos e aproveite! 🚀*
         `.trim();
 
-        // WhatsApp - mensagem mais envolvente
+        // WhatsApp - envia imagem anexada
         let precoMsgWhats = `💰 ${produto.price}`;
         if (produto.originalPrice && produto.discount) {
           precoMsgWhats += `   ~${produto.originalPrice}~   🔥 ${produto.discount}`;
         } else if (produto.originalPrice) {
           precoMsgWhats += `   ~${produto.originalPrice}~`;
         }
-        let anuncioWhats = `🎯 *ACHAMOS UMA OFERTA PRA VOCÊ!*
+        let legendaWhats = `🎯 *ACHAMOS UMA OFERTA PRA VOCÊ!*\n\n${produto.title.toUpperCase()}\n\n${precoMsgWhats}\n\n${
+          produto.image ? "" : ""
+        }\n👉 Veja: ${
+          produto.url
+        }\n\nCompartilhe com seus amigos e aproveite! 🚀`;
 
-${produto.title.toUpperCase()}
-
-${precoMsgWhats}
-
-${produto.image ? "🖼️ Imagem do produto: " + produto.image + "\n" : ""}
-👉 Veja: ${produto.url}
-
-Compartilhe com seus amigos e aproveite! 🚀`;
-
+        // Envia imagem anexada se houver
+        if (produto.image) {
+          const media = await getImageMedia(produto.image);
+          if (media) {
+            await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, media, {
+              caption: legendaWhats,
+            });
+          } else {
+            await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, legendaWhats);
+          }
+        } else {
+          await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, legendaWhats);
+        }
         TELEGRAM_BOT.sendMessage(chatId, anuncioTelegram, {
           parse_mode: "Markdown",
         });
-        if (WHATSAPP_GROUP_ID) {
-          WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, anuncioWhats)
-            .then(() =>
-              console.log("Mensagem enviada no WhatsApp com sucesso!")
-            )
-            .catch((err) =>
-              console.error("Erro ao enviar mensagem no WhatsApp:", err)
-            );
-        }
         delete userStates[chatId];
       } else {
         TELEGRAM_BOT.sendMessage(
@@ -164,7 +180,7 @@ Compartilhe com seus amigos e aproveite! 🚀`;
       const desconto = preco * (percent / 100);
       const precoFinal = preco - desconto;
 
-      // Monta mensagem para Telegram (Markdown V2) com cupom e valor atualizado
+      // Monta mensagem para Telegram (Markdown V2) com cupom e valor atualizado (formato antigo)
       let precoMsgTelegram = `💰 *R$ ${precoFinal
         .toFixed(2)
         .replace(".", ",")}*  _(com cupom ${userStates[chatId].couponCode})_`;
@@ -188,7 +204,7 @@ ${precoMsgTelegram}
 *Compartilhe com seus amigos e aproveite! 🚀*
       `.trim();
 
-      // WhatsApp - mensagem mais envolvente com cupom
+      // WhatsApp - envia imagem anexada
       let precoMsgWhats = `💰 R$ ${precoFinal
         .toFixed(2)
         .replace(".", ",")} (com cupom ${userStates[chatId].couponCode})`;
@@ -197,31 +213,29 @@ ${precoMsgTelegram}
       } else if (produto.originalPrice) {
         precoMsgWhats += `   ~${produto.originalPrice}~`;
       }
-      let anuncioWhats = `🎯 *ACHAMOS UMA OFERTA PRA VOCÊ!*
+      let legendaWhats = `🎯 *ACHAMOS UMA OFERTA PRA VOCÊ!*\n\n${produto.title.toUpperCase()}\n\n${precoMsgWhats}\n\nCupom utilizado: ${
+        userStates[chatId].couponCode
+      } (${percent}% OFF)\n\n${produto.image ? "" : ""}\n👉 Veja: ${
+        produto.url
+      }\n\nCompartilhe com seus amigos e aproveite! 🚀`;
 
-${produto.title.toUpperCase()}
-
-${precoMsgWhats}
-
-Cupom utilizado: ${userStates[chatId].couponCode} (${percent}% OFF)
-
-${produto.image ? "🖼️ Imagem do produto: " + produto.image + "\n" : ""}
-👉 Veja: ${produto.url}
-
-Compartilhe com seus amigos e aproveite! 🚀`;
-
-      // Envia mensagem no Telegram também
+      // Envia imagem anexada se houver
+      if (produto.image) {
+        const media = await getImageMedia(produto.image);
+        if (media) {
+          await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, media, {
+            caption: legendaWhats,
+          });
+        } else {
+          await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, legendaWhats);
+        }
+      } else {
+        await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, legendaWhats);
+      }
       TELEGRAM_BOT.sendMessage(chatId, anuncioTelegram, {
         parse_mode: "Markdown",
       });
 
-      if (WHATSAPP_GROUP_ID) {
-        WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, anuncioWhats)
-          .then(() => console.log("Mensagem enviada no WhatsApp com sucesso!"))
-          .catch((err) =>
-            console.error("Erro ao enviar mensagem no WhatsApp:", err)
-          );
-      }
       delete userStates[chatId];
       return;
     }

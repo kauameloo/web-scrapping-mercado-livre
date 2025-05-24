@@ -81,7 +81,10 @@ TELEGRAM_BOT.on("message", async (msg) => {
       } else if (noList.includes(answer)) {
         // Não tem cupom, envia oferta normalmente
         const produto = userStates[chatId].produto;
-        // Monta mensagem para Telegram (Markdown V2) - mantém formato antigo (link da imagem)
+        // Use SEMPRE userStates[chatId].urlInicial para o link final
+        const linkFinal = userStates[chatId].urlInicial;
+
+        // Monta mensagem para Telegram (Markdown V2)
         let precoMsgTelegram = `💰 *${produto.price}*`;
         if (produto.originalPrice && produto.discount) {
           precoMsgTelegram += `  ~${produto.originalPrice}~  🔥 *${produto.discount}*`;
@@ -96,7 +99,7 @@ ${produto.image ? `[🖼️ Ver imagem do produto](${produto.image})\n` : ""}
 
 ${precoMsgTelegram}
 
-🔗 [👉 Clique aqui para ver o produto no Mercado Livre](${produto.url})
+🔗 [👉 Clique aqui para ver o produto no Mercado Livre](${linkFinal})
 
 *Compartilhe com seus amigos e aproveite! 🚀*
         `.trim();
@@ -125,7 +128,7 @@ ${precoMsgTelegram}
 ${precoMsgWhats}
 
 ${produto.image ? "" : ""}
-🔗 *Link:* ${produto.url}
+🔗 *Link:* ${linkFinal}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 👥 Compartilhe com seus amigos e aproveite! 🚀
@@ -182,6 +185,7 @@ ${produto.image ? "" : ""}
 
       // Calcula valor final com desconto
       const produto = userStates[chatId].produto;
+      const linkFinal = userStates[chatId].urlInicial;
       const precoStr = (produto.price || "")
         .replace(/[^\d,]/g, "")
         .replace(",", ".");
@@ -214,7 +218,7 @@ ${produto.image ? `[🖼️ Ver imagem do produto](${produto.image})\n` : ""}
 
 ${precoMsgTelegram}
 
-🔗 [👉 Clique aqui para ver o produto no Mercado Livre](${produto.url})
+🔗 [👉 Clique aqui para ver o produto no Mercado Livre](${linkFinal})
 
 *Cupom utilizado:* \`${userStates[chatId].couponCode}\` (${percent}% OFF)
 
@@ -253,7 +257,7 @@ ${precoMsgWhats}
 🎟️ Cupom: ${userStates[chatId].couponCode} (${percent}% OFF)
 
 ${produto.image ? "" : ""}
-🔗 *Link:* ${produto.url}
+🔗 *Link:* ${linkFinal}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 👥 Compartilhe com seus amigos e aproveite! 🚀
@@ -299,10 +303,12 @@ ${produto.image ? "" : ""}
         return;
       }
 
-      // Salva produto no estado e pergunta sobre cupom
+      // Salva produto e o link inicial informado pelo usuário no estado
       userStates[chatId] = {
         step: "awaiting_coupon",
         produto,
+        // Remova qualquer tratamento extra, apenas salve o link como abaixo:
+        urlInicial: url,
       };
       TELEGRAM_BOT.sendMessage(
         chatId,

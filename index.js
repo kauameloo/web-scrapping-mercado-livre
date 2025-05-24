@@ -348,16 +348,69 @@ ${produto.image ? "" : ""}
         return;
       }
 
-      // Salva produto e o link inicial informado pelo usuário no estado
-      userStates[chatId] = {
-        step: "awaiting_coupon_magalu",
-        produto,
-        urlInicial: url,
-      };
-      TELEGRAM_BOT.sendMessage(
-        chatId,
-        "Você possui algum cupom de desconto para esse produto Magazine Luiza? (Responda 'sim' ou 'não')"
-      );
+      // Envia oferta imediatamente, sem perguntar sobre cupom
+      const linkFinal = url;
+
+      // Monta mensagem para Telegram (Markdown)
+      let precoMsgTelegram = "";
+      if (produto.pixPrice) {
+        precoMsgTelegram += `💰 *${produto.pixPrice}* (no Pix)`;
+        if (produto.pixDiscount)
+          precoMsgTelegram += `  🔥 *${produto.pixDiscount}*`;
+      }
+      if (produto.originalPrice) {
+        precoMsgTelegram += `  ~${produto.originalPrice}~`;
+      }
+      if (produto.cardPrice) {
+        precoMsgTelegram += `\n💳 ${produto.cardPrice}`;
+      }
+
+      const anuncioTelegram = `
+🎯 *OFERTA MAGAZINE LUIZA!*
+
+${produto.image ? `[🖼️ Ver imagem do produto](${produto.image})\n` : ""}
+🛒 *${produto.title}*
+
+${precoMsgTelegram}
+
+🔗 [👉 Clique aqui para ver o produto na Magazine Luiza](${linkFinal})
+
+*Compartilhe com seus amigos e aproveite! 🚀*
+      `.trim();
+
+      // WhatsApp
+      let legendaWhats = `🎯 *OFERTA MAGAZINE LUIZA!*
+
+🛒 *${produto.title.toUpperCase()}*
+
+${produto.pixPrice ? `💰 *NO PIX:* ${produto.pixPrice}` : ""}
+${produto.pixDiscount ? `   🔥 ${produto.pixDiscount}` : ""}
+${produto.originalPrice ? `\n💸 *SEM DESCONTO:* ${produto.originalPrice}` : ""}
+${produto.cardPrice ? `\n💳 *NO CARTÃO:* ${produto.cardPrice}` : ""}
+
+🔗 *Link:* ${linkFinal}
+
+👥 Compartilhe com seus amigos e aproveite! 🚀`;
+
+      // DEBUG LOG
+      console.log("Enviando oferta Magazine Luiza para WhatsApp e Telegram...");
+
+      if (produto.image) {
+        const media = await getImageMedia(produto.image);
+        if (media) {
+          await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, media, {
+            caption: legendaWhats,
+          });
+        } else {
+          await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, legendaWhats);
+        }
+      } else {
+        await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, legendaWhats);
+      }
+      TELEGRAM_BOT.sendMessage(chatId, anuncioTelegram, {
+        parse_mode: "Markdown",
+      });
+      // Não salva estado, não pergunta sobre cupom
       return;
     } catch (err) {
       console.error("Erro ao processar mensagem Magazine Luiza:", err);
@@ -375,217 +428,9 @@ ${produto.image ? "" : ""}
     userStates[chatId].step &&
     userStates[chatId].step.startsWith("awaiting_coupon_magalu")
   ) {
-    const state = userStates[chatId];
-
-    if (state.step === "awaiting_coupon_magalu") {
-      const yesList = ["sim", "s", "yes", "y"];
-      const noList = ["não", "nao", "n", "no", "não"];
-      const answer = text
-        .trim()
-        .toLowerCase()
-        .replace(/[ãá]/g, "a")
-        .replace(/[ôó]/g, "o");
-      if (yesList.includes(answer)) {
-        userStates[chatId].step = "awaiting_coupon_code_magalu";
-        TELEGRAM_BOT.sendMessage(
-          chatId,
-          "Por favor, informe o CUPOM de desconto:"
-        );
-      } else if (noList.includes(answer)) {
-        // Não tem cupom, envia oferta normalmente
-        const produto = userStates[chatId].produto;
-        const linkFinal = userStates[chatId].urlInicial;
-
-        // Monta mensagem para Telegram (Markdown)
-        let precoMsgTelegram = "";
-        if (produto.pixPrice) {
-          precoMsgTelegram += `💰 *${produto.pixPrice}* (no Pix)}`;
-          if (produto.pixDiscount)
-            precoMsgTelegram += `  🔥 *${produto.pixDiscount}*`;
-        }
-        if (produto.originalPrice) {
-          precoMsgTelegram += `  ~${produto.originalPrice}~`;
-        }
-        if (produto.cardPrice) {
-          precoMsgTelegram += `\n💳 ${produto.cardPrice}`;
-        }
-
-        const anuncioTelegram = `
-🎯 *OFERTA MAGAZINE LUIZA!*
-
-${produto.image ? `[🖼️ Ver imagem do produto](${produto.image})\n` : ""}
-🛒 *${produto.title}*
-
-${precoMsgTelegram}
-
-🔗 [👉 Clique aqui para ver o produto na Magazine Luiza](${linkFinal})
-
-*Compartilhe com seus amigos e aproveite! 🚀*
-        `.trim();
-
-        // WhatsApp
-        let legendaWhats = `🎯 *OFERTA MAGAZINE LUIZA!*
-
-🛒 *${produto.title.toUpperCase()}*
-
-${produto.pixPrice ? `💰 *NO PIX:* ${produto.pixPrice}` : ""}
-${produto.pixDiscount ? `   🔥 ${produto.pixDiscount}` : ""}
-${produto.originalPrice ? `\n💸 *SEM DESCONTO:* ${produto.originalPrice}` : ""}
-${produto.cardPrice ? `\n💳 *NO CARTÃO:* ${produto.cardPrice}` : ""}
-
-🔗 *Link:* ${linkFinal}
-
-👥 Compartilhe com seus amigos e aproveite! 🚀`;
-
-        // DEBUG LOG
-        console.log(
-          "Enviando oferta Magazine Luiza para WhatsApp e Telegram..."
-        );
-
-        if (produto.image) {
-          const media = await getImageMedia(produto.image);
-          if (media) {
-            await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, media, {
-              caption: legendaWhats,
-            });
-          } else {
-            await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, legendaWhats);
-          }
-        } else {
-          await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, legendaWhats);
-        }
-        TELEGRAM_BOT.sendMessage(chatId, anuncioTelegram, {
-          parse_mode: "Markdown",
-        });
-        delete userStates[chatId];
-      } else {
-        TELEGRAM_BOT.sendMessage(
-          chatId,
-          "Por favor, responda apenas com 'sim' ou 'não'."
-        );
-      }
-      return;
-    }
-
-    if (state.step === "awaiting_coupon_code_magalu") {
-      userStates[chatId].couponCode = text.trim();
-      userStates[chatId].step = "awaiting_coupon_percent_magalu";
-      TELEGRAM_BOT.sendMessage(
-        chatId,
-        "Qual o percentual (%) de desconto desse cupom?"
-      );
-      return;
-    }
-
-    if (state.step === "awaiting_coupon_percent_magalu") {
-      // Aceita percentual com ou sem símbolo %
-      let percentText = text.trim().replace(",", ".").replace("%", "");
-      const percent = parseFloat(percentText);
-      if (isNaN(percent) || percent <= 0 || percent >= 100) {
-        TELEGRAM_BOT.sendMessage(
-          chatId,
-          "Por favor, informe um percentual válido (apenas o número, ex: 10 para 10%)."
-        );
-        return;
-      }
-      userStates[chatId].couponPercent = percent;
-
-      // Calcula valor final com desconto
-      const produto = userStates[chatId].produto;
-      const linkFinal = userStates[chatId].urlInicial;
-      const precoStr = (produto.price || "")
-        .replace(/[^\d,]/g, "")
-        .replace(",", ".");
-      const preco = parseFloat(precoStr);
-      if (isNaN(preco)) {
-        TELEGRAM_BOT.sendMessage(
-          chatId,
-          "Não foi possível calcular o desconto. Preço inválido."
-        );
-        delete userStates[chatId];
-        return;
-      }
-      const desconto = preco * (percent / 100);
-      const precoFinal = preco - desconto;
-
-      // Monta mensagem para Telegram (Markdown V2) com cupom e valor atualizado (formato antigo)
-      let precoMsgTelegram = `💰 *R$ ${precoFinal
-        .toFixed(2)
-        .replace(".", ",")}*  _(com cupom ${userStates[chatId].couponCode})_`;
-      if (produto.originalPrice && produto.discount) {
-        precoMsgTelegram += `  ~${produto.originalPrice}~  🔥 *${produto.discount}*`;
-      } else if (produto.originalPrice) {
-        precoMsgTelegram += `  ~${produto.originalPrice}~`;
-      }
-      const anuncioTelegram = `
-🎯 *ACHAMOS UMA OFERTA PRA VOCÊ!*
-
-${produto.image ? `[🖼️ Ver imagem do produto](${produto.image})\n` : ""}
-🛒 *${produto.title}*
-
-${precoMsgTelegram}
-
-🔗 [👉 Clique aqui para ver o produto no Mercado Livre](${linkFinal})
-
-*Cupom utilizado:* \`${userStates[chatId].couponCode}\` (${percent}% OFF)
-
-*Compartilhe com seus amigos e aproveite! 🚀*
-      `.trim();
-
-      // WhatsApp - mensagem mais chamativa e organizada com cupom (DE: valor POR: valor)
-      let precoMsgWhats = "";
-      if (
-        produto.originalPrice &&
-        produto.price &&
-        produto.originalPrice !== produto.price
-      ) {
-        precoMsgWhats = `💰 *DE:* ${
-          produto.originalPrice
-        }\n💸 *POR:* R$ ${precoFinal.toFixed(2).replace(".", ",")} (com cupom ${
-          userStates[chatId].couponCode
-        })`;
-        if (produto.discount) {
-          precoMsgWhats += `   🔥 ${produto.discount}`;
-        }
-      } else {
-        precoMsgWhats = `💰 R$ ${precoFinal
-          .toFixed(2)
-          .replace(".", ",")} (com cupom ${userStates[chatId].couponCode})`;
-      }
-
-      let legendaWhats = `🎯 *OFERTA ENCONTRADA!*
-
-🛒 *${produto.title.toUpperCase()}*
-
-${precoMsgWhats}
-
-🎟️ Cupom: ${userStates[chatId].couponCode} (${percent}% OFF)
-
-${produto.image ? "" : ""}
-🔗 *Link:* ${linkFinal}
-
-👥 Compartilhe com seus amigos e aproveite! 🚀`;
-
-      // Envia imagem anexada se houver
-      if (produto.image) {
-        const media = await getImageMedia(produto.image);
-        if (media) {
-          await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, media, {
-            caption: legendaWhats,
-          });
-        } else {
-          await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, legendaWhats);
-        }
-      } else {
-        await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, legendaWhats);
-      }
-      TELEGRAM_BOT.sendMessage(chatId, anuncioTelegram, {
-        parse_mode: "Markdown",
-      });
-
-      delete userStates[chatId];
-      return;
-    }
+    // Não faz mais nada, pois não existe mais fluxo de cupom para Magazine Luiza
+    delete userStates[chatId];
+    return;
   }
 });
 

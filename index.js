@@ -31,14 +31,24 @@ WHATSAPP_CLIENT.on("message", (msg) => {
   }
 });
 
-// Função utilitária para baixar imagem e converter para base64
+// Função utilitária para baixar imagem, redimensionar e converter para base64
 async function getImageMedia(url) {
   try {
+    const sharp = require("sharp");
     const response = await axios.get(url, { responseType: "arraybuffer" });
-    const mime = response.headers["content-type"];
+
+    // Redimensiona para 800x800, mantendo proporção e preenchendo com branco se necessário
+    const resizedBuffer = await sharp(response.data)
+      .resize(800, 800, {
+        fit: "contain", // encaixa a imagem inteira no quadrado
+        background: { r: 255, g: 255, b: 255, alpha: 1 }, // fundo branco
+      })
+      .jpeg({ quality: 90 })
+      .toBuffer();
+
     const media = new MessageMedia(
-      mime,
-      Buffer.from(response.data, "binary").toString("base64"),
+      "image/jpeg",
+      resizedBuffer.toString("base64"),
       "imagem.jpg"
     );
     return media;
@@ -119,9 +129,8 @@ ${precoMsgTelegram}
           precoMsgWhats = `💰 ${produto.price}`;
         }
 
-        let legendaWhats = `━━━━━━━━━━━━━━━━━━━━━━
-🎯 *OFERTA ENCONTRADA!*
-━━━━━━━━━━━━━━━━━━━━━━
+        // Mensagem sem as linhas ━━━━━━━━━━━━━━━━━━━━━━
+        let legendaWhats = `🎯 *OFERTA ENCONTRADA!*
 
 🛒 *${produto.title.toUpperCase()}*
 
@@ -130,9 +139,7 @@ ${precoMsgWhats}
 ${produto.image ? "" : ""}
 🔗 *Link:* ${linkFinal}
 
-━━━━━━━━━━━━━━━━━━━━━━
-👥 Compartilhe com seus amigos e aproveite! 🚀
-━━━━━━━━━━━━━━━━━━━━━━`;
+👥 Compartilhe com seus amigos e aproveite! 🚀`;
 
         // Envia imagem anexada se houver
         if (produto.image) {
@@ -246,9 +253,7 @@ ${precoMsgTelegram}
           .replace(".", ",")} (com cupom ${userStates[chatId].couponCode})`;
       }
 
-      let legendaWhats = `━━━━━━━━━━━━━━━━━━━━━━
-🎯 *OFERTA ENCONTRADA!*
-━━━━━━━━━━━━━━━━━━━━━━
+      let legendaWhats = `🎯 *OFERTA ENCONTRADA!*
 
 🛒 *${produto.title.toUpperCase()}*
 
@@ -259,9 +264,7 @@ ${precoMsgWhats}
 ${produto.image ? "" : ""}
 🔗 *Link:* ${linkFinal}
 
-━━━━━━━━━━━━━━━━━━━━━━
-👥 Compartilhe com seus amigos e aproveite! 🚀
-━━━━━━━━━━━━━━━━━━━━━━`;
+👥 Compartilhe com seus amigos e aproveite! 🚀`;
 
       // Envia imagem anexada se houver
       if (produto.image) {

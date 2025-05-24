@@ -3,6 +3,7 @@ const TelegramBot = require("node-telegram-bot-api");
 const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
 const scrapMercadoLivre = require("./scrapers/mercadolivre");
+const scrapMagazineLuiza = require("./scrapers/magazineluiza"); // NOVO SCRAPER
 const axios = require("axios"); // Adicione para baixar imagens
 
 // Substitua valores hardcoded por variáveis de ambiente
@@ -290,10 +291,14 @@ ${produto.image ? "" : ""}
 
   // Busca o link do Mercado Livre em qualquer parte do texto
   const mlRegex = /(https?:\/\/(?:www\.)?mercadolivre\.com[^\s]*)/i;
-  const match = text.match(mlRegex);
+  const magaluRegex =
+    /(https?:\/\/(?:www\.)?(?:magazinevoce\.com\.br|divulgador\.magalu\.com)[^\s]*)/i;
 
-  if (match && match[1]) {
-    const url = match[1];
+  const matchML = text.match(mlRegex);
+  const matchMagalu = text.match(magaluRegex);
+
+  if (matchML && matchML[1]) {
+    const url = matchML[1];
     try {
       const produto = await scrapMercadoLivre(url);
       console.log("Produto retornado pelo scrap:", produto); // debug
@@ -326,6 +331,106 @@ ${produto.image ? "" : ""}
         "Ocorreu um erro ao buscar o produto. Tente novamente."
       );
     }
+  }
+
+  // NOVO: fluxo Magazine Luiza
+  if (matchMagalu && matchMagalu[1]) {
+    const url = matchMagalu[1];
+    try {
+      const produto = await scrapMagazineLuiza(url);
+      console.log("Produto Magazine Luiza retornado pelo scrap:", produto);
+
+      if (!produto || !produto.title) {
+        TELEGRAM_BOT.sendMessage(
+          chatId,
+          "Não foi possível extrair informações do produto Magazine Luiza. Tente outro link."
+        );
+        return;
+      }
+
+      // Envia oferta imediatamente, sem perguntar sobre cupom
+      const linkFinal = url;
+
+      // Monta mensagem para Telegram (Markdown)
+      let precoMsgTelegram = "";
+      if (produto.pixPrice) {
+        precoMsgTelegram += `💰 *${produto.pixPrice}* (no Pix)`;
+        if (produto.pixDiscount)
+          precoMsgTelegram += `  🔥 *${produto.pixDiscount}*`;
+      }
+      if (produto.originalPrice) {
+        precoMsgTelegram += `  ~${produto.originalPrice}~`;
+      }
+      if (produto.cardPrice) {
+        precoMsgTelegram += `\n💳 ${produto.cardPrice}`;
+      }
+
+      const anuncioTelegram = `
+🎯 *OFERTA MAGAZINE LUIZA!*
+
+${produto.image ? `[🖼️ Ver imagem do produto](${produto.image})\n` : ""}
+🛒 *${produto.title}*
+
+${precoMsgTelegram}
+
+🔗 [👉 Clique aqui para ver o produto na Magazine Luiza](${linkFinal})
+
+*Compartilhe com seus amigos e aproveite! 🚀*
+      `.trim();
+
+      // WhatsApp
+      let legendaWhats = `🎯 *OFERTA MAGAZINE LUIZA!*
+
+🛒 *${produto.title.toUpperCase()}*
+
+${produto.pixPrice ? `💰 *NO PIX:* ${produto.pixPrice}` : ""}
+${produto.pixDiscount ? `   🔥 ${produto.pixDiscount}` : ""}
+${produto.originalPrice ? `\n💸 *SEM DESCONTO:* ${produto.originalPrice}` : ""}
+${produto.cardPrice ? `\n💳 *NO CARTÃO:* ${produto.cardPrice}` : ""}
+
+🔗 *Link:* ${linkFinal}
+
+👥 Compartilhe com seus amigos e aproveite! 🚀`;
+
+      // DEBUG LOG
+      console.log("Enviando oferta Magazine Luiza para WhatsApp e Telegram...");
+
+      if (produto.image) {
+        const media = await getImageMedia(produto.image);
+        if (media) {
+          await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, media, {
+            caption: legendaWhats,
+          });
+        } else {
+          await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, legendaWhats);
+        }
+      } else {
+        await WHATSAPP_CLIENT.sendMessage(WHATSAPP_GROUP_ID, legendaWhats);
+      }
+      TELEGRAM_BOT.sendMessage(chatId, anuncioTelegram, {
+        parse_mode: "Markdown",
+      });
+      // Não salva estado, não pergunta sobre cupom
+      return;
+    } catch (err) {
+      console.error("Erro ao processar mensagem Magazine Luiza:", err);
+      TELEGRAM_BOT.sendMessage(
+        chatId,
+        "Ocorreu um erro ao buscar o produto Magazine Luiza. Tente novamente."
+      );
+      return;
+    }
+  }
+
+  // Adapte o fluxo de estado para Magazine Luiza
+  if (
+    userStates[chatId] &&
+    userStates[chatId].step &&
+    userStates[chatId].step.startsWith("awaiting_coupon_magalu")
+  ) {
+    // Não faz mais nada, pois não existe mais fluxo de cupom para Magazine Luiza
+    delete userStates[chatId];
+    return;
   }
 });
 
